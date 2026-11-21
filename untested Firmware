@@ -1,0 +1,293 @@
+/*
+  Line Following + Obstacle Avoiding Robot (Custom ATmega328P PCB)
+  Features:
+    - Line following through 5 IR line sensors
+    - 2 DC Motors via L298N
+    - Obstacle avoidance through Ultrasonic sensor HC-SR04 mounted on Pan Servo
+    - 2 Mode Switches: SW2 = Line Follow ON/OFF, SW3 = Obstacle Avoidance ON/OFF
+    - Power: 7.4V LiPo regulated to 5V via LM2596T-5 Buck Converter
+*/
+
+#include <Servo.h>
+
+// -------------------- Pin Definitions (ATmega328P -> Arduino Mapping) --------------------
+// L298N Motor Driver
+const int ENA = 6;   // PD6 (PWM) - Motor A Speed
+const int IN1 = 2;   // PD2       - Motor A Dir 1
+const int IN2 = 3;   // PD3       - Motor A Dir 2
+const int IN3 = 4;   // PD4       - Motor B Dir 1
+const int IN4 = 5;   // PD5       - Motor B Dir 2
+const int ENB = 9;   // PB1 (PWM) - Motor B Speed
+
+// 5 IR Line Sensors (Left to Right: U3 -> U7)
+const int IR_FAR_LEFT  = A0; // PC0 (U3)
+const int IR_LEFT      = A1; // PC1 (U4)
+const int IR_CENTER    = A2; // PC2 (U5)
+const int IR_RIGHT     = A3; // PC3 (U6)
+const int IR_FAR_RIGHT = A4; // PC4 (U7)
+
+// Ultrasonic Sensor (U8) & Pan Servo (J1)
+const int TRIG_PIN  = 7;     // PD7
+const int ECHO_PIN  = 8;     // PB0
+const int SERVO_PIN = 12;    // PB4
+
+// Mode Switches (Active LOW with internal pull-up)
+const int SW_LINE_PIN = 10;  // PB2 (SW2: Line Following Enable)
+const int SW_OBST_PIN = 11;  // PB3 (SW3: Obstacle Avoidance Enable)
+
+// -------------------- Configuration & Constants --------------------
+const int STOP_DISTANCE   = 15;   // Stop and scan if obstacle is closer than 15 cm
+const int BASE_SPEED      = 170;  // Normal driving speed (0 - 255)
+const int TURN_SPEED_SOFT = 140;  // Speed for gentle curve corrections
+const int TURN_SPEED_HARD = 185;  // Speed for sharp 90-degree turns
+
+// Servo angles (adjust if horn is mounted slightly off-center)
+const int SERVO_CENTER = 90;
+const int SERVO_LEFT   = 150;
+const int SERVO_RIGHT  = 30;
+
+// -------------------- Global Objects & Variables --------------------
+Servo panServo;
+
+// -------------------- Setup --------------------
+void setup() {
+  // Motor pins
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENB, OUTPUT);
+
+  // IR sensor pins
+  pinMode(IR_FAR_LEFT,  INPUT);
+  pinMode(IR_LEFT,      INPUT);
+  pinMode(IR_CENTER,    INPUT);
+  pinMode(IR_RIGHT,     INPUT);
+  pinMode(IR_FAR_RIGHT, INPUT);
+
+  // Ultrasonic pins
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Mode switches (connect switch between Pin and GND)
+  pinMode(SW_LINE_PIN, INPUT_PULLUP);
+  pinMode(SW_OBST_PIN, INPUT_PULLUP);
+
+  // Initialize Pan Servo facing forward
+  panServo.attach(SERVO_PIN);
+  panServo.write(SERVO_CENTER);
+
+  stopMotors();
+  delay(2000); // 2-second safety delay before robot starts moving
+}
+
+// -------------------- Main Loop --------------------
+void loop() {
+  // Read mode switches (LOW = Switch ON / connected to GND)
+  bool lineModeEnabled     = (digitalRead(SW_LINE_PIN) == LOW);
+  bool obstacleModeEnabled = (digitalRead(SW_OBST_PIN) == LOW);
+
+  // If both switches are OFF, keep robot safely stopped
+  if (!lineModeEnabled && !obstacleModeEnabled) {
+    stopMotors();
+    return;
+  }
+
+  // 1. Check for obstacles if Obstacle Avoidance is enabled
+  if (obstacleModeEnabled) {
+    int frontDistance = measureDistance();
+    if (frontDistance > 0 && frontDistance < STOP_DISTANCE) {
+      avoidObstacle(lineModeEnabled);
+      return; // Restart loop after avoidance maneuver
+    }
+  }
+
+  // 2. Follow line if Line Following is enabled
+  if (lineModeEnabled) {
+    followLine();
+  } else {
+    // Only Obstacle Mode is active: drive straight until obstacle is detected
+    moveForward(BASE_SPEED, BASE_SPEED);
+  }
+}
+
+// -------------------- Line Following (5 IR Sensors) --------------------
+void followLine() {
+  // Assumes IR sensor outputs HIGH (1) on black line, LOW (0) on white surface
+  int s1 = digitalRead(IR_FAR_LEFT);
+  int s2 = digitalRead(IR_LEFT);
+  int s3 = digitalRead(IR_CENTER);
+  int s4 = digitalRead(IR_RIGHT);
+  int s5 = digitalRead(IR_FAR_RIGHT);
+
+  // All sensors on black (finish line / intersection) -> Stop
+  if (s1 == 1 && s2 == 1 && s3 == 1 && s4 == 1 && s5 == 1) {
+    stopMotors();
+  }
+  // Far Left detects line -> Sharp Left Turn
+  else if (s1 == 1) {
+    turnLeftHard();
+  }
+  // Far Right detects line -> Sharp Right Turn
+  else if (s5 == 1) {
+    turnRightHard();
+  }
+  // Inner Left detects line -> Gentle Left Correction
+  else if (s2 == 1 && s3 == 0) {
+    turnLeftSoft();
+  }
+  // Inner Right detects line -> Gentle Right Correction
+  else if (s4 == 1 && s3 == 0) {
+    turnRightSoft();
+  }
+  // Center sensor detects line -> Drive Straight
+  else if (s3 == 1) {
+    moveForward(BASE_SPEED, BASE_SPEED);
+  }
+  // Line lost (all sensors 0) -> Keep moving slowly or stop safely
+  else {
+    moveForward(120, 120);
+  }
+}
+
+// -------------------- Obstacle Avoidance with Pan Servo --------------------
+void avoidObstacle(bool returnToLine) {
+  stopMotors();
+  delay(200);
+
+  // Back up slightly to create turning room
+  moveBackward(150, 150);
+  delay(250);
+  stopMotors();
+  delay(200);
+
+  // Scan Left
+  panServo.write(SERVO_LEFT);
+  delay(400);
+  int leftDist = measureDistance();
+
+  // Scan Right
+  panServo.write(SERVO_RIGHT);
+  delay(450);
+  int rightDist = measureDistance();
+
+  // Return Servo to Center
+  panServo.write(SERVO_CENTER);
+  delay(300);
+
+  // Choose the side with more clearance
+  if (leftDist >= rightDist) {
+    // Bypass obstacle on the left side
+    turnLeftHard();
+    delay(450);
+    moveForward(BASE_SPEED, BASE_SPEED);
+    delay(600);
+    turnRightHard();
+    delay(450);
+
+    // If line mode is active, drive forward until center/right sensor finds the line again
+    if (returnToLine) {
+      moveForward(140, 140);
+      unsigned long startTime = millis();
+      while (digitalRead(IR_CENTER) == LOW && digitalRead(IR_RIGHT) == LOW && (millis() - startTime < 2500)) {
+        // Searching for black line (with 2.5s safety timeout)
+      }
+    }
+  } else {
+    // Bypass obstacle on the right side
+    turnRightHard();
+    delay(450);
+    moveForward(BASE_SPEED, BASE_SPEED);
+    delay(600);
+    turnLeftHard();
+    delay(450);
+
+    // If line mode is active, drive forward until center/left sensor finds the line again
+    if (returnToLine) {
+      moveForward(140, 140);
+      unsigned long startTime = millis();
+      while (digitalRead(IR_CENTER) == LOW && digitalRead(IR_LEFT) == LOW && (millis() - startTime < 2500)) {
+        // Searching for black line (with 2.5s safety timeout)
+      }
+    }
+  }
+}
+
+// -------------------- Ultrasonic Distance Measurement --------------------
+int measureDistance() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  // Timeout after 25ms (~4m max range) so code never freezes
+  long duration = pulseIn(ECHO_PIN, HIGH, 25000);
+  if (duration == 0) return 999; // No echo / path clear
+  return duration * 0.034 / 2;
+}
+
+// -------------------- Motor Control Helpers --------------------
+void moveForward(int speedA, int speedB) {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, speedA);
+  analogWrite(ENB, speedB);
+}
+
+void moveBackward(int speedA, int speedB) {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+  analogWrite(ENA, speedA);
+  analogWrite(ENB, speedB);
+}
+
+void turnLeftSoft() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, TURN_SPEED_SOFT / 2); // Slow down left motor
+  analogWrite(ENB, TURN_SPEED_SOFT);
+}
+
+void turnRightSoft() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, TURN_SPEED_SOFT);
+  analogWrite(ENB, TURN_SPEED_SOFT / 2); // Slow down right motor
+}
+
+void turnLeftHard() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH); // Left motor reverse
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);  // Right motor forward
+  analogWrite(ENA, TURN_SPEED_HARD);
+  analogWrite(ENB, TURN_SPEED_HARD);
+}
+
+void turnRightHard() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);  // Left motor forward
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH); // Right motor reverse
+  analogWrite(ENA, TURN_SPEED_HARD);
+  analogWrite(ENB, TURN_SPEED_HARD);
+}
+
+void stopMotors() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
