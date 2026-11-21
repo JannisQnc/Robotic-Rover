@@ -13,7 +13,7 @@ The step files are the parts I modelled myself for more complex parts I download
 
 Schematic:
 
-
+![image alt](https://github.com/JannisQnc/Robotic-Rover/blob/956cd8243f7e152535c0487aa9743421442247a6/Schematic.png)
 
 PCB design:
 
