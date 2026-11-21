@@ -1,30 +1,27 @@
-"Component Count:" 25     
-      
-"Main Components:"      
-  Value Quantity Price Link Note
-  7.4V_LiPo_Battery 1 $15.0 https://amzn.eu/d/02jSS1CU -
+Value Quantity Price Link Note
+  7.4V_LiPo_Battery 1 $16.0 https://amzn.eu/d/02jSS1CU -
   100nF_capacitor 2 $1.64 https://www.digikey.com/short/tch2nrrh -
-  220µF_capacitor 1 $0.32 https://www.digikey.com/short/mpwdc517 -
-  470µF_capacitor 1 $0.34 https://www.digikey.com/short/rddp0m3c -
+  220ÂµF_capacitor 1 $0.32 https://www.digikey.com/short/mpwdc517 -
+  470ÂµF_capacitor 1 $0.34 https://www.digikey.com/short/rddp0m3c -
   1N5822_diode 1 $0.65 https://www.digikey.com/short/z3w8dzz5 -
-  2_servo_motors 1 "7,00 ?" https://amzn.eu/d/02GwzsF5 "I could not find a single servo on Amazon"
+  2_servo_motors 1 $7.6 https://amzn.eu/d/02GwzsF5 "I could not find a single servo on Amazon"
   ISP_header 1 $0.33 https://www.digikey.com/short/3pq9j59h "To program the chip"
-  Inductor_33µH 1 $1.74 https://www.digikey.com/short/p15jjj4h -
+  Inductor_33ÂµH 1 $1.74 https://www.digikey.com/short/p15jjj4h -
   10k?_resistor 1 $0.10 https://www.digikey.com/short/j9twzmr3 -
   Slide_switch 2 $1.44 https://www.digikey.com/short/mtv9j9z5 -
   Rocker_switch 1 $0.64 https://www.digikey.com/short/0427pm3w -
   LM2596T-5_regulator_switching 1 $5.67 https://www.digikey.com/short/7qzq8r15 -
-  "IR sensor" 5 "7,00 ?" https://amzn.eu/d/0efVWsdq -
-  "HC_SR04 Ultrasonic sensor" 1 "2,50 ?" https://amzn.eu/d/031g8wgf -
-  "Acrylic chassis" 1 "5,00 ?" https://amzn.eu/d/0b8AxX8j -
-  2_DC_motors_2_wheels_L298N_motor_driver_kit 1 $11 https://amzn.eu/d/0iIssLBY "I know it's a kit but it contains only components I need"
-  "4set_caster wheels" 1 "6,50 ?" https://amzn.eu/d/0fwzoVTM -
+  "IR sensor" 5 $7.6 https://amzn.eu/d/0efVWsdq -
+  "HC_SR04 Ultrasonic sensor" 1 $2.7 https://amzn.eu/d/031g8wgf -
+  "Acrylic chassis" 1 $5.5 https://amzn.eu/d/0b8AxX8j -
+  2_DC_motors_2_wheels_L298N_motor_driver_kit 1 $12 https://amzn.eu/d/0iIssLBY "I know it's a kit but it contains only components I need"
+  "4set_caster wheels" 1 $7 https://amzn.eu/d/0fwzoVTM -
   ATmega328-PU_chip 1 $2.87 https://www.digikey.com/short/13bf5phz -
   PCB 1 $5.2 https://cart.jlcpcb.com/quote?quoteTab=standardPcb -
-  USBasp_AVR_programmer 1 "6,50 ?" https://amzn.eu/d/00X4AfxO "To connect with ISP and computer to program the chip"
+  USBasp_AVR_programmer 1 $7 https://amzn.eu/d/00X4AfxO "To connect with ISP and computer to program the chip"
 Tools:      
-  Hot_glue_gun 1 "6,60 ?" https://amzn.eu/d/0cTl4LYC 
-  M3_screws_nuts_standoffs_assortment 1 "7,00 ?" https://amzn.eu/d/02lEUhno 
-  Needle_nose_plier 1 "3,50 ?" https://amzn.eu/d/0hGbAFfv 
-  Digital_multimeter 1 $11.3 https://amzn.eu/d/0hbpZf1F 
-  Soldering_iron 1 $20.0 https://amzn.eu/d/0eKS7nBW 
+  Hot_glue_gun 1 $7 https://amzn.eu/d/0cTl4LYC 
+  M3_screws_nuts_standoffs_assortment 1 $7.6 https://amzn.eu/d/02lEUhno 
+  Needle_nose_plier 1 $3.8 https://amzn.eu/d/0hGbAFfv 
+  Digital_multimeter 1 $12 https://amzn.eu/d/0hbpZf1F 
+  Soldering_iron 1 $21.9 https://amzn.eu/d/0eKS7nBW 
